@@ -8,7 +8,7 @@ export default function NavLinks() {
     const commonLinks = [
       { href: "/equipment", label: "Equipment" },
       { href: "/about", label: "About Us" },
-      { href: "/contact", label: "Contacts" },
+      { href: "/contacts", label: "Contacts" },
     ];
 
     const authSpecificLinks = user
