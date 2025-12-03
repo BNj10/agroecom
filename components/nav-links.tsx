@@ -2,7 +2,7 @@ import Link from "next/link";
 import { useUser } from "@/hooks/use-user";
 
 export default function NavLinks() {
-  const { user, loading } = useUser();
+  const { user } = useUser();
 
   const getNavigationLinks = () => {
     const commonLinks = [
@@ -17,16 +17,6 @@ export default function NavLinks() {
 
     return [...authSpecificLinks, ...commonLinks];
   };
-
-  if (loading) {
-    return (
-      <nav className="hidden md:flex items-center gap-8 text-white font-medium">
-        {[...Array(4)].map((_, i) => (
-          <div key={i} className="h-6 w-20 bg-gray-700 animate-pulse rounded"></div>
-        ))}
-      </nav>
-    );
-  }
 
   const navigationLinks = getNavigationLinks();
 
