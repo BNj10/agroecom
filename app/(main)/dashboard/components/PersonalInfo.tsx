@@ -8,88 +8,122 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { toast } from "sonner"
 import PersonalInfoSkeleton from "./PersonalInfoSkeleton"
-import { User } from "@supabase/supabase-js"
-import { Loader2 } from "lucide-react"
+import { Loader2, Camera } from "lucide-react"
 
-interface PersonalInfoProps {
-  editable?: boolean;
-  initialData?: {
-    username: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-    avatarUrl?: string;
-  };
+interface FormDataState {
+  username: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  address: string;
+  avatarUrl: string;
 }
 
-export default function PersonalInfo({ editable = true, initialData }: PersonalInfoProps) {
+interface PersonalInfoProps {
+  editable?: boolean
+  username?: string
+  firstName?: string
+  lastName?: string
+  email?: string
+  address?: string
+  avatarUrl?: string
+  userId?: string 
+}
+
+export default function PersonalInfo({
+  editable = true,
+  username,
+  firstName,
+  lastName,
+  email,
+  address,
+  avatarUrl,
+  userId: propUserId
+}: PersonalInfoProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
-  const [user, setUser] = useState<User | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   
-  const [formData, setFormData] = useState({
-    username: initialData?.username || "",
-    firstName: initialData?.firstName || "",
-    lastName: initialData?.lastName || "",
-    email: initialData?.email || "",
-    avatarUrl: initialData?.avatarUrl || ""
+  const [userId, setUserId] = useState<string | null>(propUserId || null)
+  const [currentAuthUserId, setCurrentAuthUserId] = useState<string | null>(null)
+
+  const [formData, setFormData] = useState<FormDataState>({
+    username: "",
+    firstName: "",
+    lastName: "",
+    email: "",
+    address: "",
+    avatarUrl: ""
   })
 
-  const [originalData, setOriginalData] = useState({
-    username: initialData?.username || "",
-    firstName: initialData?.firstName || "",
-    lastName: initialData?.lastName || "",
-    email: initialData?.email || "",
-    avatarUrl: initialData?.avatarUrl || ""
-  })
+  const [originalData, setOriginalData] = useState<FormDataState>(formData)
 
-  // const supabase = createClient()
+  const supabase = createClient()
 
-  // useEffect(() => {
-  //   const fetchData = async () => {
-  //     try {
-  //       const { data: { user } } = await supabase.auth.getUser()
+  const canEdit = editable && (currentAuthUserId === userId);
+
+  useEffect(() => {
+    if (email || username || firstName || propUserId) {
+        const dataFromProps: FormDataState = {
+            username: username || "",
+            firstName: firstName || "",
+            lastName: lastName || "",
+            email: email || "",
+            address: address || "",
+            avatarUrl: avatarUrl || ""
+        }
         
-  //       if (!user) return
+        setFormData(dataFromProps)
+        setOriginalData(dataFromProps)
+        setUserId(propUserId || null)
+        setLoading(false)
+        return; 
+    }
 
-  //       setUser(user)
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        const { data: { user } } = await supabase.auth.getUser()
+        
+        if (!user) {
+            setLoading(false);
+            return; 
+        }
 
-  //       const { data: profile, error } = await supabase
-  //         .from('profiles')
-  //         .select('username, first_name, last_name, avatar_url')
-  //         .eq('id', user.id)
-  //         .single()
+        setCurrentAuthUserId(user.id)
+        setUserId(user.id) 
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('username, first_name, last_name, avatar_url, address')
+          .eq('id', user.id)
+          .single()
 
-  //       if (error && error.code !== 'PGRST116') {
-  //         console.error('Error fetching profile:', error)
-  //       }
+        if (error && error.code !== 'PGRST116') { 
+          console.error('Error fetching profile:', error)
+          toast.error("Could not load profile data")
+        }
 
-  //       const initialData = {
-  //         username: profile?.username || "",
-  //         firstName: profile?.first_name || "",
-  //         lastName: profile?.last_name || "",
-  //         email: user.email || "",
-  //         avatarUrl: profile?.avatar_url || ""
-  //       }
+        const initialData: FormDataState = {
+          username: profile?.username || "",
+          firstName: profile?.first_name || "",
+          lastName: profile?.last_name || "",
+          address: profile?.address || "", 
+          email: user.email || "", 
+          avatarUrl: profile?.avatar_url || ""
+        }
+        console.log(initialData)
+        setFormData(initialData)
+        setOriginalData(initialData)
+      } catch (error) {
+        console.error('Error loading user data:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
 
-  //       setFormData(initialData)
-  //       setOriginalData(initialData)
-  //     } catch (error) {
-  //       console.error('Error loading user data:', error)
-  //     } finally {
-  //       setLoading(false)
-  //     }
-  //   }
-
-  //   fetchData()
-  // }, [supabase])
-
-    useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 1000)
-    return () => clearTimeout(timer)
-  }, [])
+    fetchData()
+  }, [username, firstName, lastName, email, address, avatarUrl, propUserId]) 
 
   const handleEditClick = () => {
     setIsEditing(true)
@@ -109,34 +143,42 @@ export default function PersonalInfo({ editable = true, initialData }: PersonalI
   }
 
   const handleSave = async () => {
-  //   if (!user) return
+    if (!userId || !canEdit) {
+       toast.error("Cannot save: Missing User ID or Unauthorized");
+       return;
+    }
 
-  //   try {
-  //     const { error } = await supabase
-  //       .from('profiles')
-  //       .upsert({
-  //         id: user.id,
-  //         username: formData.username,
-  //         first_name: formData.firstName,
-  //         last_name: formData.lastName,
-  //         updated_at: new Date().toISOString(),
-  //       })
+    try {
+      setLoading(true) 
 
-  //     if (error) throw error
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({
+          id: userId,
+          username: formData.username,
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          address: formData.address, 
+          updated_at: new Date().toISOString(),
+        })
 
-  //     setOriginalData(formData)
-  //     setIsEditing(false)
-  //     toast.success("Profile updated successfully")
-  //   } catch (error) {
-  //     const errorMessage = error instanceof Error ? error.message : "Failed to update profile"
-  //     toast.error(errorMessage)
-  //   }
+      if (error) throw error
+
+      setOriginalData(formData)
+      setIsEditing(false)
+      toast.success("Profile updated successfully")
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to update profile"
+      toast.error(errorMessage)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const getInitials = () => {
     const first = formData.firstName ? formData.firstName[0] : ""
     const last = formData.lastName ? formData.lastName[0] : ""
-    return (first + last).toUpperCase() || user?.email?.slice(0, 2).toUpperCase() || "U"
+    return (first + last).toUpperCase() || formData.email?.slice(0, 2).toUpperCase() || "U"
   }
 
   const handleUploadClick = () => {
@@ -144,93 +186,77 @@ export default function PersonalInfo({ editable = true, initialData }: PersonalI
   }
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    // const file = e.target.files?.[0]
-    // if (!file) return
+    const file = e.target.files?.[0]
+    if (!file || !userId || !canEdit) return
 
-    // // Validate file type
-    // const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
-    // if (!validTypes.includes(file.type)) {
-    //   toast.error("Please upload a valid image file (JPEG, PNG, GIF, or WebP)")
-    //   return
-    // }
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+    if (!validTypes.includes(file.type)) {
+      toast.error("Please upload a valid image file (JPEG, PNG, GIF, or WebP)")
+      return
+    }
 
-    // // Validate file size (max 5MB)
-    // const maxSize = 5 * 1024 * 1024
-    // if (file.size > maxSize) {
-    //   toast.error("Image must be less than 5MB")
-    //   return
-    // }
+    const maxSize = 5 * 1024 * 1024
+    if (file.size > maxSize) {
+      toast.error("Image must be less than 5MB")
+      return
+    }
 
-    // setUploading(true)
+    setUploading(true)
 
-    // try {
-    //   const supabase = createClient()
+    try {
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${userId}-avatar-${Date.now()}.${fileExt}` 
       
-    //   // Get current user
-    //   const { data: { user: currentUser } } = await supabase.auth.getUser()
-    //   if (!currentUser) {
-    //     throw new Error("User not found")
-    //   }
+      const { error: uploadError } = await supabase.storage
+        .from('avatars') 
+        .upload(fileName, file, { upsert: true }) 
 
-    //   // Create unique file name
-    //   const fileExt = file.name.split('.').pop()
-    //   const fileName = `${currentUser.id}-${Date.now()}.${fileExt}`
-    //   const filePath = `avatars/${fileName}`
+      if (uploadError) throw uploadError
 
-    //   // Upload to Supabase Storage
-    //   const { error: uploadError } = await supabase.storage
-    //     .from('profiles')
-    //     .upload(filePath, file, { upsert: true })
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName)
 
-    //   if (uploadError) throw uploadError
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: userId,
+          avatar_url: publicUrl,
+          updated_at: new Date().toISOString(),
+        })
 
-    //   // Get public URL
-    //   const { data: { publicUrl } } = supabase.storage
-    //     .from('profiles')
-    //     .getPublicUrl(filePath)
+      if (updateError) throw updateError
 
-    //   // Update form data with new avatar URL
-    //   setFormData(prev => ({ ...prev, avatarUrl: publicUrl }))
-
-    //   // Update profile in database
-    //   const { error: updateError } = await supabase
-    //     .from('profiles')
-    //     .upsert({
-    //       id: currentUser.id,
-    //       avatar_url: publicUrl,
-    //       updated_at: new Date().toISOString(),
-    //     })
-
-    //   if (updateError) throw updateError
-
-    //   toast.success("Profile picture updated successfully")
-    // } catch (error) {
-    //   const errorMessage = error instanceof Error ? error.message : "Failed to upload image"
-    //   toast.error(errorMessage)
-    // } finally {
-    //   setUploading(false)
-    //   // Reset file input
-    //   if (fileInputRef.current) {
-    //     fileInputRef.current.value = ''
-    //   }
-    // }
+      setFormData(prev => ({ ...prev, avatarUrl: publicUrl }))
+      setOriginalData(prev => ({ ...prev, avatarUrl: publicUrl }))
+      
+      toast.success("Profile picture updated successfully")
+    } catch (error) {
+      console.error(error)
+      const errorMessage = error instanceof Error ? error.message : "Failed to upload image"
+      toast.error(errorMessage)
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
   }
 
-  if (loading) {
+  if (loading && !formData.email) {
     return <PersonalInfoSkeleton />
   }
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <div className="text-xl font-(--font-geist-sans)">
+        <div className="text-xl font-semibold">
           Personal Information
         </div>
-        {editable && !isEditing && (
+        {canEdit && !isEditing && ( 
           <Button 
             onClick={handleEditClick}
             variant="outline"
-            className="font-(--font-geist-sans)"
           >
             Edit
           </Button>
@@ -239,42 +265,39 @@ export default function PersonalInfo({ editable = true, initialData }: PersonalI
       <CardContent className="space-y-6">
         
         <div className="flex items-center space-x-4">
-          <div className="relative">
-            <Avatar className="h-16 w-16">
-              <AvatarImage src={formData.avatarUrl || "/path/to/profile-image.png"} alt="User Avatar" /> 
+          <div className="relative group/avatar">
+            <Avatar className="h-24 w-24">
+              <AvatarImage 
+                src={formData.avatarUrl} 
+                alt="User Avatar" 
+                className="object-cover" 
+              /> 
               <AvatarFallback>{getInitials()}</AvatarFallback>
             </Avatar>
-            {uploading && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full">
-                <Loader2 className="h-6 w-6 animate-spin text-white" />
-              </div>
+
+            {canEdit && isEditing && (
+                <div 
+                    onClick={handleUploadClick}
+                    className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full cursor-pointer opacity-0 group-hover/avatar:opacity-100 transition-opacity"
+                >
+                    {uploading ? (
+                      <Loader2 className="h-6 w-6 animate-spin text-white" />
+                    ) : (
+                      <Camera className="h-6 w-6 text-white" />
+                    )}
+                </div>
             )}
           </div>
-          {isEditing && (
-            <div className="flex space-x-2">
+
+          {canEdit && isEditing && (
               <input
                 ref={fileInputRef}
                 type="file"
                 accept="image/jpeg,image/png,image/gif,image/webp"
                 onChange={handleFileChange}
                 className="hidden"
-              />
-              <Button 
-                className="font-(--font-geist-sans)"
-                variant="outline"
-                onClick={handleUploadClick}
                 disabled={uploading}
-              >
-                {uploading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Uploading...
-                  </>
-                ) : (
-                  "Upload a picture"
-                )}
-              </Button>
-            </div>
+              />
           )}
         </div>
 
@@ -286,11 +309,21 @@ export default function PersonalInfo({ editable = true, initialData }: PersonalI
               id="username" 
               value={formData.username}
               onChange={handleInputChange}
-              readOnly={!isEditing}
-              className={`font-(--font-geist-sans) ${!isEditing ? 'bg-muted' : ''}`}
+              readOnly={!isEditing || !canEdit}
+              className={`${(!isEditing || !canEdit) ? 'bg-muted' : ''}`}
             />
           </div>
-          <div></div>
+
+          <div className="space-y-2">
+            <label htmlFor="email" className="block text-sm font-medium">Email</label>
+            <Input 
+              id="email" 
+              value={formData.email}
+              readOnly={true} 
+              className="bg-muted text-muted-foreground cursor-not-allowed"
+              title="Email cannot be changed here"
+            />
+          </div>
 
           <div className="space-y-2">
             <label htmlFor="firstName" className="block text-sm font-medium">First Name</label>
@@ -298,49 +331,53 @@ export default function PersonalInfo({ editable = true, initialData }: PersonalI
               id="firstName" 
               value={formData.firstName}
               onChange={handleInputChange}
-              readOnly={!isEditing}
-              className={`font-(--font-geist-sans) ${!isEditing ? 'bg-muted' : ''}`}
+              readOnly={!isEditing || !canEdit}
+              className={`${(!isEditing || !canEdit) ? 'bg-muted' : ''}`}
             />
           </div>
+
           <div className="space-y-2">
             <label htmlFor="lastName" className="block text-sm font-medium">Last Name</label>
             <Input 
               id="lastName" 
               value={formData.lastName}
               onChange={handleInputChange}
-              readOnly={!isEditing}
-              className={`font-(--font-geist-sans) ${!isEditing ? 'bg-muted' : ''}`}
+              readOnly={!isEditing || !canEdit}
+              className={`${(!isEditing || !canEdit) ? 'bg-muted' : ''}`}
             />
           </div>
           
           <div className="space-y-2 col-span-1 md:col-span-2">
-            <label htmlFor="email" className="block text-sm font-medium">Email</label>
+            <label htmlFor="address" className="block text-sm font-medium">Address</label>
             <Input 
-              id="email" 
-              value={formData.email}
+              id="address" 
+              value={formData.address}
               onChange={handleInputChange}
-              type="email"
-              readOnly={true}
-              className={`font-(--font-geist-sans) bg-muted`}
-              title="Email cannot be changed here"
+              readOnly={!isEditing || !canEdit}
+              placeholder="123 Farmville Road, Barangay Sta. Cruz"
+              className={`${(!isEditing || !canEdit) ? 'bg-muted' : ''}`}
             />
           </div>
+
         </div>
 
-        {isEditing && (
+        {canEdit && isEditing && ( 
           <div className="flex justify-end space-x-2">
             <Button 
               onClick={handleCancel}
               variant="outline"
-              className="font-(--font-geist-sans) px-6"
+              disabled={loading}
+              className="px-6"
             >
               Cancel
             </Button>
             <Button 
               onClick={handleSave}
-              className="font-(--font-geist-sans) px-6"
+              disabled={loading}
+              className="px-6"
             >
-              Save personal info
+              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+              Save changes
             </Button>
           </div>
         )}
