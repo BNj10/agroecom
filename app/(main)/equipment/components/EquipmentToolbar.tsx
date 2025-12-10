@@ -19,7 +19,7 @@ export default function EquipmentToolbar() {
       } else {
         params.delete(name);
       }
-      // Reset to page 1 when changing filters
+      
       if (name !== 'page') {
         params.set('page', '1');
       }
@@ -32,7 +32,6 @@ export default function EquipmentToolbar() {
     router.push(`?${createQueryString(key, value)}`, { scroll: false });
   };
 
-  // Debounce search
   useEffect(() => {
     const timer = setTimeout(() => {
       const currentSearch = searchParams.get('search') || '';
@@ -63,12 +62,13 @@ export default function EquipmentToolbar() {
             value={searchParams.get('sort') || 'popularity'}
             onValueChange={(value) => handleFilterChange('sort', value)}
           >
-            <SelectTrigger className="w-[140px] h-10">
+            <SelectTrigger className="w-[180px] h-10">
               <SelectValue placeholder="Popularity" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="popularity">Popularity</SelectItem>
-              <SelectItem value="price">Price</SelectItem>
+              <SelectItem value="price_asc">Price: Low to High</SelectItem>
+              <SelectItem value="price_desc">Price: High to Low</SelectItem>
               <SelectItem value="newest">Newest</SelectItem>
             </SelectContent>
           </Select>
