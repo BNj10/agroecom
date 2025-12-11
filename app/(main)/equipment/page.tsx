@@ -1,5 +1,5 @@
 import EquipmentSidebar from './components/EquipmentSidebar'
-import EquipmentListClient from './components/EquipmentListClient'
+import EquipmentList from './components/EquipmentList'
 import AddEquipmentModal from './components/AddEquipmentModal'
 import { getEquipmentTypes } from '@/lib/equipment-actions';
 import { createClient } from '@/utils/supabase/server'
