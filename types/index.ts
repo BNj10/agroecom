@@ -1,3 +1,5 @@
+import { LucideIcon } from 'lucide-react';
+
 export interface User {
     id: string;
     aud: string;
@@ -21,7 +23,7 @@ export interface Equipment {
     added_at: string;
     updated_at: string;
     location: string;
-    rental_count: string;
+    rental_count: number;
 }
 
 export interface EquipmentType {
@@ -34,8 +36,7 @@ export interface Reviews {
     id: string;
     user_id: string;
     equipment_id: string;
-    average_rating: string;
-    rating_count: string,
+    rating_count: number,
     comment: string;
     created_at: string;
 }
@@ -44,10 +45,27 @@ export interface Rentals {
     id: string;
     renter_id: string;
     owner_id: string;
-    eqipment_id: string;
+    equipment_id: string;
     status: string;
     start_date: string,
     end_date: string;
     created_at: string;
     updated_at: string;
+    duration: string;
+}
+
+export interface WriteReview {
+    user_id: string;
+    equipment_id: string;
+    rating_count: string;
+    comment: string;
+}
+
+export interface StatItem {
+  title: string
+  value: string | number
+  description?: string
+  icon: LucideIcon
+  iconColor?: string 
+  valueColor?: string 
 }
