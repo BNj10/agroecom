@@ -46,7 +46,7 @@ export default function RentalForm({ rental }: RentalFormProps) {
       await approveRental(rental.id); 
       
       setCurrentStatus('approved');
-      toast.success(`Request from ${rental.renter?.first_name} Approved!`);
+      toast.success(`Request Approved!`);
       
       router.refresh(); 
       
@@ -69,7 +69,7 @@ export default function RentalForm({ rental }: RentalFormProps) {
       await rejectRental(rental.id);
       
       setCurrentStatus('rejected');
-      toast.error(`Request from ${rental.renter?.first_name} Rejected.`);
+      toast.success(`Request Rejected.`);
 
       router.refresh();
       
