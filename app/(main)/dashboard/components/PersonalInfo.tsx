@@ -123,7 +123,7 @@ export default function PersonalInfo({
     }
 
     fetchData()
-  }, [username, firstName, lastName, email, address, avatarUrl, propUserId]) 
+  }, [username, firstName, lastName, email, address, avatarUrl, propUserId, supabase]) 
 
   const handleEditClick = () => {
     setIsEditing(true)
