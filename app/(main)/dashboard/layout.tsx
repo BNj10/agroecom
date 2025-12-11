@@ -1,27 +1,41 @@
-'use client'
-
 import { ReactNode } from "react"
 import SideBar from "@/components/app-sidebar" 
-import { useUserData } from '@/lib/user-data'
+import { createClient } from '@/utils/supabase/server'
+import { redirect } from "next/navigation"
+
 interface DashboardLayoutProps {
     children: ReactNode
 }
 
-export default function DashboardLayout({ children }: DashboardLayoutProps) {
-    const { user } = useUserData()
+export default async function DashboardLayout({ children }: DashboardLayoutProps) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+        redirect('/login')
+    }
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+    const userRole = profile?.role || 'farmer'
     
-    const userRole = user?.app_metadata?.role
-    const userName = user?.user_metadata?.username || user?.email?.split('@')[0] || 'User'
+    const userName = user.user_metadata?.username || user.email?.split('@')[0] || 'User'
+    const userAvatar = user.user_metadata?.avatar_url || ''
 
     return (
-    <div className="flex min-h-screen">
-        <SideBar 
-            userRole={userRole} 
-            userName={userName} 
-        />
-        <div className="flex-1 overflow-auto p-4">
-            {children}
+        <div className="flex min-h-screen">
+            <SideBar 
+                userRole={userRole} 
+                userName={userName} 
+                userAvatar={userAvatar}
+            />
+            <div className="flex-1 overflow-auto p-4">
+                {children}
+            </div>
         </div>
-    </div>
     )
 }
