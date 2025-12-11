@@ -1,174 +1,239 @@
 'use client'
 
-import { useRouter } from "next/navigation"
 import { Card, CardContent, CardTitle } from "@/components/ui/card"
+import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
-import { useRentals } from "@/contexts/RentalContext"
+import { toast } from "sonner"
+import { useRouter } from "next/navigation"
+import { getEquipmentRentalInfo, approveRental, rejectRental } from '@/lib/equipment-actions'
 
-interface RenterDetails {
-  name: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  deliveryLocation: string;
-  returnLocation: string;
-  startDate: string;
-  startTime: string;
-  endDate: string;
-  endTime: string;
-  comment: string;
+type RentalRequest = Awaited<ReturnType<typeof getEquipmentRentalInfo>>[number];
+
+export interface RentalFormProps {
+  rental?: RentalRequest;
 }
 
-interface RentalFormProps {
-  rentalId?: string;
-  renter?: RenterDetails;
-  onApprove?: () => void;
-  onReject?: () => void;
-  showActions?: boolean;
-}
+export default function RentalForm({ rental }: RentalFormProps) {
+  const router = useRouter() 
+  const [action, setAction] = useState<string | null>(null)
+  const [isRateLimited, setIsRateLimited] = useState(false)
+  const [currentStatus, setCurrentStatus] = useState<string>(rental?.status || 'pending');
 
-const mockRenter: RenterDetails = {
-  name: 'John',
-  lastName: 'Doe',
-  email: 'john.doe@example.com',
-  phone: '+63 912 345 6789',
-  deliveryLocation: 'Ormoc City, Leyte',
-  returnLocation: 'Ormoc City, Leyte',
-  startDate: '2025-12-15',
-  startTime: '08:00',
-  endDate: '2025-12-20',
-  endTime: '17:00',
-  comment: 'Please deliver in the morning. I will be available from 8 AM onwards.',
-};
+  useEffect(() => {
+    if (rental?.status) {
+      setCurrentStatus(rental.status);
+    }
+  }, [rental?.status]);
 
-export default function RentalForm({ 
-  rentalId,
-  renter: propRenter, 
-  onApprove, 
-  onReject,
-  showActions = true 
-}: RentalFormProps) {
-  const router = useRouter();
-  const { getRentalById, updateRentalStatus } = useRentals();
-  
-  const contextRental = rentalId ? getRentalById(rentalId) : undefined;
-  
-  const renter = contextRental ? {
-    name: contextRental.name,
-    lastName: contextRental.lastName || '',
-    email: contextRental.email,
-    phone: contextRental.phone || '',
-    deliveryLocation: contextRental.deliveryLocation || '',
-    returnLocation: contextRental.returnLocation || '',
-    startDate: contextRental.startDate || '',
-    startTime: contextRental.startTime || '',
-    endDate: contextRental.endDate || '',
-    endTime: contextRental.endTime || '',
-    comment: contextRental.comment || '',
-  } : (propRenter || mockRenter);
+  const formatDateTime = (isoString: string) => {
+    if (!isoString) return { date: '', time: '' };
+    const dateObj = new Date(isoString);
+    const date = dateObj.toISOString().split('T')[0];
+    const time = dateObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    return { date, time };
+  };
 
-  const handleApprove = () => {
-    if (onApprove) {
-      onApprove();
-    } else if (rentalId) {
-      updateRentalStatus(rentalId, 'approved');
-      router.push('/dashboard/lender');
-    } else {
-      console.log('Approved!');
+  const handleApprove = async () => {
+    if (!rental || action || isRateLimited || currentStatus === 'approved') return;
+    
+    setAction('approve'); 
+    setIsRateLimited(true);
+
+    try {
+      await approveRental(rental.id); 
+      
+      setCurrentStatus('approved');
+      toast.success(`Request from ${rental.renter?.first_name} Approved!`);
+      
+      router.refresh(); 
+      
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to approve request");
+    } finally {
+      setAction(null);
+      setTimeout(() => setIsRateLimited(false), 1000);
     }
   };
 
-  const handleReject = () => {
-    if (onReject) {
-      onReject();
-    } else if (rentalId) {
-      updateRentalStatus(rentalId, 'rejected');
-      router.push('/dashboard/lender');
-    } else {
-      console.log('Rejected!');
+  const handleReject = async () => {
+    if (!rental || action || isRateLimited || currentStatus === 'rejected') return;
+    
+    setAction('reject');
+    setIsRateLimited(true);
+
+    try {
+      await rejectRental(rental.id);
+      
+      setCurrentStatus('rejected');
+      toast.error(`Request from ${rental.renter?.first_name} Rejected.`);
+
+      router.refresh();
+      
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to reject request");
+    } finally {
+       setAction(null);
+       setTimeout(() => setIsRateLimited(false), 1000);
     }
   };
+
+  if (!rental) {
+    return (
+      <Card className="shadow-lg p-6 w-full h-fit">
+        <CardContent className="text-center py-10 text-muted-foreground">
+          Waiting for rental details...
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const renter = rental.renter;
+  const start = formatDateTime(rental.start_date);
+  const end = formatDateTime(rental.end_date);
 
   return (
     <Card className="shadow-lg p-6 w-full h-fit">
       <CardTitle className="text-xl font-bold">
-        Renter Details
+        Renter Details 
       </CardTitle>
       <CardContent className="p-0 pt-6 space-y-6">
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <Label htmlFor="renterName">First Name</Label>
-            <Input id="renterName" defaultValue={renter.name} readOnly className="bg-muted" />
+            <Input 
+              id="renterName" 
+              defaultValue={renter?.first_name || ''} 
+              readOnly 
+              className="bg-muted" 
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="renterLastName">Last Name</Label>
-            <Input id="renterLastName" defaultValue={renter.lastName} readOnly className="bg-muted" />
+            <Input 
+              id="renterLastName" 
+              defaultValue={renter?.last_name || ''} 
+              readOnly 
+              className="bg-muted" 
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="renterEmail">Email</Label>
-            <Input id="renterEmail" defaultValue={renter.email} readOnly className="bg-muted" />
+            <Input 
+              id="renterEmail" 
+              defaultValue={renter?.email || ''} 
+              readOnly 
+              className="bg-muted" 
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="renterPhone">Contact Information</Label>
-            <Input id="renterPhone" defaultValue={renter.phone} readOnly className="bg-muted" />
+            <Input 
+              id="renterPhone" 
+              defaultValue={renter?.contact_number || 'N/A'} 
+              readOnly 
+              className="bg-muted" 
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="deliveryLocation">Delivery Location</Label>
-            <Input id="deliveryLocation" defaultValue={renter.deliveryLocation} readOnly className="bg-muted" />
+            <Input 
+              id="deliveryLocation" 
+              defaultValue={rental.deliver_at || ''} 
+              readOnly 
+              className="bg-muted" 
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="returnLocation">Return Location</Label>
-            <Input id="returnLocation" defaultValue={renter.returnLocation} readOnly className="bg-muted" />
+            <Input 
+              id="returnLocation" 
+              defaultValue={rental.return_at || ''} 
+              readOnly 
+              className="bg-muted" 
+            />
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="space-y-2 md:col-span-1">
             <Label htmlFor="startDate">Start Date</Label>
-            <Input id="startDate" defaultValue={renter.startDate} type="date" readOnly className="bg-muted" />
+            <Input 
+              id="startDate" 
+              type="date" 
+              defaultValue={start.date} 
+              readOnly 
+              className="bg-muted" 
+            />
           </div>
           <div className="space-y-2 md:col-span-1">
             <Label htmlFor="startTime">Start Time</Label>
-            <Input id="startTime" defaultValue={renter.startTime} type="time" readOnly className="bg-muted" />
+            <Input 
+              id="startTime" 
+              type="time" 
+              defaultValue={start.time} 
+              readOnly 
+              className="bg-muted" 
+            />
           </div>
           
           <div className="space-y-2 md:col-span-1">
             <Label htmlFor="endDate">End Date</Label>
-            <Input id="endDate" defaultValue={renter.endDate} type="date" readOnly className="bg-muted" />
+            <Input 
+              id="endDate" 
+              type="date" 
+              defaultValue={end.date} 
+              readOnly 
+              className="bg-muted" 
+            />
           </div>
           <div className="space-y-2 md:col-span-1">
             <Label htmlFor="endTime">End Time</Label>
-            <Input id="endTime" defaultValue={renter.endTime} type="time" readOnly className="bg-muted" />
+            <Input 
+              id="endTime" 
+              type="time" 
+              defaultValue={end.time} 
+              readOnly 
+              className="bg-muted" 
+            />
           </div>
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="message">Comment or Message</Label>
-          <Textarea id="message" defaultValue={renter.comment} rows={4} readOnly className="resize-none bg-muted" />
+          <Textarea 
+            id="message" 
+            defaultValue={rental.message || "No message provided."} 
+            rows={4} 
+            readOnly 
+            className="resize-none bg-muted" 
+          />
         </div>
 
-        {showActions && (
           <div className="flex justify-end pt-4 space-x-4">
             <Button 
-              className="px-8 font-semibold"
-              variant="default"
-              onClick={handleApprove}
+                className="w-40 font-semibold active:scale-95 transition-transform" 
+                variant={currentStatus === 'approved' ? "outline" : "default"}
+                disabled={action !== null || isRateLimited || currentStatus === 'approved'}
+                onClick={handleApprove}
             >
-              Approve
+              {action === 'approve' ? "Processing..." : (currentStatus === 'approved' ? "Approved" : "Approve")}
             </Button>
+            
             <Button 
-              className="px-8 font-semibold"
-              variant="destructive"
-              onClick={handleReject}
+                className="w-40 font-semibold active:scale-95 transition-transform" 
+                variant={currentStatus === 'rejected' ? "outline" : "destructive"}
+                disabled={action !== null || isRateLimited || currentStatus === 'rejected'}
+                onClick={handleReject}
             >
-              Reject
+              {action === 'reject' ? "Processing..." : (currentStatus === 'rejected' ? "Rejected" : "Reject")}
             </Button>
-          </div>
-        )}
+        </div>
       </CardContent>
     </Card>
   );
