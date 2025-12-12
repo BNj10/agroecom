@@ -226,7 +226,7 @@ export default function RentRequestForm({ ownerId: propOwnerId, equipmentId: pro
             </div>
 
             <div className="space-y-1.5 md:col-span-2">
-               <Label className="text-xs text-slate-500">Contact Number <span className="text-red-500">*</span></Label>
+               <Label className="text-xs text-slate-500">Contact Number</Label>
                <div className="relative">
                  <Input 
                     name="contact"
