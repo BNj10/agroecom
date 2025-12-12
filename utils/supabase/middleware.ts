@@ -27,6 +27,7 @@ export async function updateSession(request: NextRequest) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
+
   const path = request.nextUrl.pathname
 
   if (path.startsWith('/dashboard') && !user) {
@@ -34,19 +35,12 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user && path.startsWith('/dashboard')) {
-    
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-    
-    const userRole = profile?.role || 'farmer'
+    const userRole = user.user_metadata?.role || 'farmer'
 
     const isAdminZone = path.startsWith('/dashboard/admin')
     const isLenderZone = path.startsWith('/dashboard/lender')
-    const isOverview = path === '/dashboard/overview'
-
+    const isOverview = path === '/dashboard/overview' 
+    
     if (isAdminZone && userRole !== 'admin') {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
@@ -54,6 +48,7 @@ export async function updateSession(request: NextRequest) {
     if (isLenderZone && userRole !== 'lender') {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
+
     if (isOverview && (userRole !== 'admin' && userRole !== 'lender')) {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
