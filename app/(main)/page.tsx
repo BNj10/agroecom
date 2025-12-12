@@ -7,7 +7,7 @@ export default function Home() {
     <main className="min-h-screen w-full">
       <Hero
         title="AGROECOM"
-        backgroundImage="/hero_bg.jpg"
+        backgroundImage="/Hero_bg.jpg"
         darkenImage={true}
         align="center"
       />
